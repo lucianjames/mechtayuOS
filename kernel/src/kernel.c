@@ -96,10 +96,40 @@ void kmain(void) {
     }
     kterm_printf_newline("MMAP:");
     for(int i=0; i<memmap_request.response->entry_count; i++){
-        kterm_printf_newline("Base=0x%x Length=0x%x Type=0x%x", 
+        char* typestr;
+        switch(memmap_request.response->entries[i]->type){
+            case LIMINE_MEMMAP_USABLE:
+                typestr = "MEMMAP_USABLE";
+                break;
+            case LIMINE_MEMMAP_RESERVED:
+                typestr = "MEMMAP_RESERVED";
+                break;
+            case LIMINE_MEMMAP_ACPI_RECLAIMABLE:
+                typestr = "MEMMAP_ACPI_RECLAIMABLE";
+                break;
+            case LIMINE_MEMMAP_ACPI_NVS:
+                typestr = "MEMMAP_ACPI_NVS";
+                break;
+            case LIMINE_MEMMAP_BAD_MEMORY:
+                typestr = "MEMMAP_BAD_MEMORY";
+                break;
+            case LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE:
+                typestr = "MEMMAP_BOOTLOADER_RECLAIMABLE";
+                break;
+            case LIMINE_MEMMAP_KERNEL_AND_MODULES:
+                typestr = "MEMMAP_KERNEL_AND_MODULES";
+                break;
+            case LIMINE_MEMMAP_FRAMEBUFFER:
+                typestr = "MEMMAP_FRAMEBUFFER";
+                break;
+            default:
+                typestr = "UNKNOWN";
+                break;
+        }
+        kterm_printf_newline("Base=0x%x Length=0x%x Type=%s", 
                 memmap_request.response->entries[i]->base,
                 memmap_request.response->entries[i]->length,
-                memmap_request.response->entries[i]->type);
+                typestr);
     }
 
     khalt();
