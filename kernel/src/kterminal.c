@@ -83,6 +83,18 @@ void kterm_printf_newline(const char* fmt, ...){
                     col = kterm_printuint(col, va_arg(args, uint64_t), 16);
                     break;
                 }
+                case 's':
+                {   
+                    int si = 0;
+                    const char* sstr = va_arg(args, const char*);
+                    while(sstr[si] != 0){
+                        draw_psf_char(G_KTERM_FRAMEBUFF, G_KTERM_CROW*(((psf1_header*)&_binary_zap_vga09_psf_start)->charsize+1), col*8, sstr[si]);
+                        si++;
+                        col++;
+                    }
+                    col--;
+                    break;
+                }
             }
         }else{
             /*
