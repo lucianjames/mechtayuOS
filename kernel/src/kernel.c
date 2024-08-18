@@ -4,6 +4,7 @@
 #include "limine.h"
 
 #include "serialout.h"
+#include "graphics.h"
 
 // Set the base revision to 2, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -58,20 +59,14 @@ void kmain(void) {
         writestr_debug_serial("ERR: Bootloader did not provide a framebuffer\n");
         khalt();
     }
-
-    // Get framebuffer information
-    struct limine_framebuffer* framebuffer = framebuffer_request.response->framebuffers[0];
-
-    // Draw a line to prove that we have "booted"
-    // Note: Assumes RGB + 32bits
-    for (size_t i = 0; i < 100; i++) {
-        volatile uint32_t *fb_ptr = framebuffer->address;
-        fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xff00ff;
-    }
     
     writestr_debug_serial("======================\n");
     writestr_debug_serial("Hello from the kernel!\n");
     writestr_debug_serial("======================\n");
+    
+    serial_dump_psf_info();
+    draw_psf_debug_matrix(framebuffer_request.response->framebuffers[0], 128, 128);
+    draw_psf_str(framebuffer_request.response->framebuffers[0], 0, 0, "Hello from the kernel!");
 
     khalt();
 }
