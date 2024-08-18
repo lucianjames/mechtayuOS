@@ -1,0 +1,5 @@
+iso_root/
+*/bin/
+*/obj/
+serial.log
+*.iso

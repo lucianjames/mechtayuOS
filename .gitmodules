@@ -1,0 +1,9 @@
+[submodule "kernel/src/cc-runtime"]
+	path = kernel/src/cc-runtime
+	url = https://github.com/osdev0/cc-runtime
+[submodule "kernel/src/freestanding-headers"]
+	path = kernel/src/freestanding-headers
+	url = https://github.com/osdev0/freestanding-headers
+[submodule "limine"]
+	path = limine
+	url = https://github.com/limine-bootloader/limine.git
