@@ -25,6 +25,13 @@ static volatile struct limine_memmap_request memmap_request = {
     .revision = 2
 };
 
+__attribute__((used, section(".requests")))
+static volatile struct limine_kernel_address_request kernel_address_request = {
+    .id = LIMINE_KERNEL_ADDRESS_REQUEST,
+    .revision = 2
+};
+
+
 __attribute__((used, section(".requests_start_marker")))
 static volatile LIMINE_REQUESTS_START_MARKER;
 
@@ -71,13 +78,22 @@ void kmain(void) {
     kterm_printf_newline("Hello from the kernel!");
     kterm_printf_newline("======================");
 
+    // Print kernel address
+    if(kernel_address_request.response == NULL){
+        writestr_debug_serial("ERR: Bootloader did not provide kernel address info\n");
+        kterm_printf_newline("ERR: Bootloader did not provide kernel address info");
+        khalt();
+    }
+    kterm_printf_newline("Kernel physical base addr=0x%x Virtual base addr=0x%x", 
+            kernel_address_request.response->physical_base, 
+            kernel_address_request.response->virtual_base);
+
     // Print memmap info
     if(memmap_request.response == NULL || memmap_request.response->entry_count < 1){
         writestr_debug_serial("ERR: Bootloader did not provide memmap info\n");
         kterm_printf_newline("ERR: Bootloader did not provide mmap info");
         khalt();
     }
-
     kterm_printf_newline("MMAP:");
     for(int i=0; i<memmap_request.response->entry_count; i++){
         kterm_printf_newline("Base=0x%x Length=0x%x Type=0x%x", 
