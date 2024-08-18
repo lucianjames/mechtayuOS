@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include "limine.h"
 
+#include "serialout.h"
+
 // Set the base revision to 2, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
 // See specification for further info.
@@ -42,14 +44,18 @@ static void khalt(void) {
     Kernel entry point
 */
 void kmain(void) {
+    init_debug_serial();
+    writestr_debug_serial("Kernel booting...\n");
+
     // Ensure the bootloader actually understands base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
+        writestr_debug_serial("ERR: Limine base revision not supported by bootloader\n");
         khalt();
     }
 
     // Ensure the bootloader has provided a framebuffer
-    if (framebuffer_request.response == NULL
-     || framebuffer_request.response->framebuffer_count < 1) {
+    if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1) {
+        writestr_debug_serial("ERR: Bootloader did not provide a framebuffer\n");
         khalt();
     }
 
@@ -62,7 +68,10 @@ void kmain(void) {
         volatile uint32_t *fb_ptr = framebuffer->address;
         fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xff00ff;
     }
-
+    
+    writestr_debug_serial("======================\n");
+    writestr_debug_serial("Hello from the kernel!\n");
+    writestr_debug_serial("======================\n");
 
     khalt();
 }
