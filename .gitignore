@@ -3,3 +3,4 @@ iso_root/
 */obj/
 serial.log
 *.iso
+.vscode/
