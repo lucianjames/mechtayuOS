@@ -38,13 +38,13 @@ void kterm_write_newline(const char* str){
 }
 
 
-int kterm_printuint(int col, uint32_t uint_to_write, int base){
+int kterm_printuint(int col, uint64_t uint_to_write, int base){
     if(uint_to_write == 0){
         draw_psf_char(G_KTERM_FRAMEBUFF, G_KTERM_CROW*(((psf1_header*)&_binary_zap_vga09_psf_start)->charsize+1), col*8, '0');
         return col++;
     }
 
-    char str[33];
+    char str[65];
     int str_idx = 0;
     while(uint_to_write != 0){
         int r = uint_to_write % base;
@@ -75,12 +75,12 @@ void kterm_printf_newline(const char* fmt, ...){
             switch(fmt[i]){
                 case 'u':
                 {
-                    col = kterm_printuint(col, va_arg(args, uint32_t), 10);
+                    col = kterm_printuint(col, va_arg(args, uint64_t), 10);
                     break;
                 }
                 case 'x':
                 {
-                    col = kterm_printuint(col, va_arg(args, uint32_t), 16);
+                    col = kterm_printuint(col, va_arg(args, uint64_t), 16);
                     break;
                 }
             }
