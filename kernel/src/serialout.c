@@ -75,13 +75,13 @@ void writestr_debug_serial(const char* str){
 }
 
 
-void writeuint_debug_serial(uint32_t uint_to_write, int base){
+void writeuint_debug_serial(uint64_t uint_to_write, int base){
     if(uint_to_write == 0){
         write_debug_serial('0');
         return;
     }
 
-    char str[33];
+    char str[65];
 
     int str_idx = 0;
     while(uint_to_write != 0){

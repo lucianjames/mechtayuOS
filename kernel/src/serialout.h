@@ -19,6 +19,6 @@ char read_debug_serial();
 int is_debug_transmit_empty();
 void write_debug_serial(char a);
 void writestr_debug_serial(const char* str);
-void writeuint_debug_serial(uint32_t uint_to_write, int base);
+void writeuint_debug_serial(uint64_t uint_to_write, int base);
 
 #endif
