@@ -4,3 +4,4 @@ iso_root/
 serial.log
 *.iso
 .vscode/
+tooling/
