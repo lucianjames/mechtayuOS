@@ -74,9 +74,16 @@ void kmain(void) {
     writestr_debug_serial("======================\n");
     serial_dump_psf_info();
     kterm_init(framebuffer_request.response->framebuffers[0]);
-    kterm_printf_newline("======================");
-    kterm_printf_newline("Hello from the kernel!");
-    kterm_printf_newline("======================");
+    kterm_printf_newline("=========================================================================================");
+    kterm_printf_newline("|                                                                    @@@@       -@@@:   |");
+    kterm_printf_newline("| .@@@  @@@@ @@@@@@@ @@@   @@ @@@@@@@@   @@@    @@  @@@@@@         @@@@@@@@   @@@@@@@@@ |");
+    kterm_printf_newline("|  @@@  @@@: #@      -@    @@    @*     @@ @    @  @@    @@      @@@     @@:  @@@       |");
+    kterm_printf_newline("|  @+@@ @ @: #@@@@@@ +@@@@@@@    @@     @  @@   @@@@@    @@      @@@     @@-   @@@@@    |");
+    kterm_printf_newline("|  @@ @-@ @: #@         #- @@    @@    @@@@@@@  @  @@    @@ @@@@ @@-    @@@       @@@=  |");
+    kterm_printf_newline("| .@@ @@  @@ @@@@@@@       @@    @@   @@    @@@ @@  @@@@@@       @@+   @@@   @@    @@@  |");
+    kterm_printf_newline("|                                                                 @@@@@@@    @@@@@@@@   |");
+    kterm_printf_newline("=========================================================================================");
+
 
     // Print kernel address
     if(kernel_address_request.response == NULL){
@@ -95,14 +102,21 @@ void kmain(void) {
         khalt();
     }
     kterm_printf_newline("MMAP:");
+    size_t usableMemSize = 0;
+    size_t usableSections = 0;
+    size_t totalMemory = 0;
     for(int i=0; i<memmap_request.response->entry_count; i++){
+        totalMemory += memmap_request.response->entries[i]->length;
         char* typestr;
         switch(memmap_request.response->entries[i]->type){
             case LIMINE_MEMMAP_USABLE:
                 typestr = "MEMMAP_USABLE";
+                usableMemSize += memmap_request.response->entries[i]->length;
+                usableSections++;
                 break;
             case LIMINE_MEMMAP_RESERVED:
                 typestr = "MEMMAP_RESERVED";
+                totalMemory -= memmap_request.response->entries[i]->length;
                 break;
             case LIMINE_MEMMAP_ACPI_RECLAIMABLE:
                 typestr = "MEMMAP_ACPI_RECLAIMABLE";
@@ -131,6 +145,80 @@ void kmain(void) {
                 memmap_request.response->entries[i]->length,
                 typestr);
     }
+    kterm_printf_newline("Usable mem size: %u bytes across %u sections", usableMemSize, usableSections);
+    kterm_printf_newline("Total mem size (not incl MEMMAP_RESERVED): %u bytes", totalMemory);
+    /*
+        4096 byte page size, use one byte per page to store various flags
+        usableMemSize / 4096
+    */
+    kterm_printf_newline("Number of bytes required for bytemap of total usable memory: %u bytes", usableMemSize / 4096);
+
+    /*
+        Usable memory should be mapped to continuous chunk of virtual addresses
+        Once this has been done, a bytemap can be assembled tracking which virtual addresses are allocated
+        This is just a simple way of doing things for now
+    */
+    /*
+        PML4 - 512 entries pointing to different page dir pointer tables
+        PDPT - 512 entries (per PDPT, of which there are 512) pointing to page directory tables
+        PDT - 512 entries (per PDT x512) pointing to pages
+        page - 4096 entries containing pointers to physical memory addresses of pages (0x1000 sized chunks of memory)
+    */
+
+    /*
+
+        find_free_phys_page(){
+            // For super super not optimised basic version 1, just iterate physical mem bitmap until free page found
+            for(bitmap entries){
+                if(entry free){
+                    return entry address;
+                }
+            }
+            return null; // no mem left
+        }
+
+        map_addr(){
+
+        }
+
+        allocate_new_page(virt_addr){ // Map the given virtual address to any available physical address
+            phsy_addr = find_free_phys_page()
+            map_addr(phys_addr, virt_addr);
+        }
+
+
+    */
+
 
     khalt();
 }
+
+
+
+/*
+
+                                                                                                                   
+                                                                                                                   
+                                                                                        @@@@@@@@:       @@@@@@@@   
+  @@@@+   @@@@  @@@@@@@@@  @@@     @@ %@@@@@@@@@+    @@@@     @@    @@@@@@@           %@@@@   @@@@    @@@@    @@@  
+   @@@@   @@@@  .@         @@-     @@      @        @@ @@     @@   @@     @@         @@@@      @@@    @@@          
+   @@ @  @@ @@  .@@@@@@@@  @@@     @@     .@       @@@ -@@    @@@@@@       @@        @@@       @@@-   -@@@@@       
+   @@ @@ @  @@  .@@         @@@@@@@@@     .@       @@   @@@   @@  @@       @+ @@@@@ @@@@       @@@       @@@@@@    
+  .@@ =@@@  @@  :@@                @@     -@      @@@@@@@@@   @@   @@    -@@        @@@@      @@@@          @@@@   
+  @@@  @@@ =@@  @@@@@@@@@          @@     @@*    @@@     @@@  @@    @@@@@@#          @@@     @@@@    @-     :@@@   
+                                                                                     @@@@@@@@@@     @@@@@@@@@@@    
+                                                                                        @@@@#          @@@@@+      
+
+
+                                                                                       
+                                                                    @@@@       -@@@:   
+ .@@@  @@@@ @@@@@@@ @@@   @@ @@@@@@@@   @@@    @@  @@@@@@         @@@@@@@@   @@@@@@@@@ 
+  @@@  @@@: #@      %@    @@    @*     @@ @    @  @@    @@      @@@     @@:  @@@       
+  @+@@ @ @: #@@@@@@ +@@@@@@@    @@     @  @@   @@@@@    @@      @@@     @@-   @@@@@    
+  @@ @%@ @: #@         #% @@    @@    @@@@@@@  @  @@    @@ @@@@ @@%    @@@       @@@=  
+ .@@ @@  @@ @@@@@@@       @@    @@   @@    @@@ @@  @@@@@@       @@+   @@@   @@    @@@  
+                                                                 @@@@@@@    @@@@@@@@   
+                                                                                       
+                                                                                       
+                                                                                                                     
+*/

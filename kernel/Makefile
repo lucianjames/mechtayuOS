@@ -9,12 +9,12 @@ SRC_FILES = $(shell find $(SRC_DIR) -name '*.c')
 OBJ_FILES = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC_FILES))
 
 CC = x86_64-elf-gcc
-CFLAGS = -g -O2 -pipe -Wall -Wextra -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector \
+CFLAGS = -g -pipe -Wall -Wextra -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector \
          -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -m64 \
          -march=x86-64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel \
          -I $(SRC_DIR) -isystem $(SRC_DIR)/freestanding-headers
 LDFLAGS = -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 -gc-sections -T $(LINK_SCRIPT)
-
+#CFLAGS_OPTIMISATION todo later
 
 
 all: kernel

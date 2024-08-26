@@ -94,3 +94,34 @@ void writeuint_debug_serial(uint64_t uint_to_write, int base){
         write_debug_serial(str[i]);
     }
 }
+
+
+void debug_serial_printf(const char* fmt, ...){
+    va_list args;
+    va_start(args, fmt);
+    for(int i=0; fmt[i]!='\0'; i++){
+        if(fmt[i] == '%'){
+            i++;
+            switch(fmt[i]){
+                case 'u':
+                {
+                    writeuint_debug_serial(va_arg(args, uint64_t), 10);
+                    break;
+                }
+                case 'x':
+                {
+                    writeuint_debug_serial(va_arg(args, uint64_t), 16);
+                    break;
+                }
+                case 's':
+                {
+                    writestr_debug_serial(va_arg(args, const char*));
+                    break;
+                }
+            }
+        }else{
+            write_debug_serial(fmt[i]);
+        }
+    }
+    va_end(args);
+}
