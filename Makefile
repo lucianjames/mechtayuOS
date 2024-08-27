@@ -37,9 +37,9 @@ $(ISO_NAME): $(KERNEL_BINARY) $(LIMINE_FILES) $(EFI_FILES)
 		$(ISO_DIR) -o $(ISO_NAME)
 
 runvm: iso
-	qemu-system-x86_64 -boot d -cdrom $(ISO_NAME) -serial file:serial.log -monitor stdio -vga std -m 6144
+	qemu-system-x86_64 -boot d -cdrom $(ISO_NAME) -serial file:serial.log -monitor stdio -vga std
 runvmgdb: iso
-	qemu-system-x86_64 -s -S -boot d -cdrom $(ISO_NAME) -serial file:serial.log -monitor stdio -vga std -d cpu_reset -m 6144
+	qemu-system-x86_64 -s -S -boot d -cdrom $(ISO_NAME) -serial file:serial.log -monitor stdio -vga std -d cpu_reset
 
 clean:
 	rm -r $(ISO_DIR) $(ISO_NAME)
