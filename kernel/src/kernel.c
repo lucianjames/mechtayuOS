@@ -7,6 +7,8 @@
 #include "graphics.h"
 #include "kterminal.h"
 
+#define KERNEL_STACK_SIZE 0x4000
+
 /*
     Limine bootloader requests, see limine docs/examples for all the info
 */
@@ -29,6 +31,13 @@ __attribute__((used, section(".requests")))
 static volatile struct limine_kernel_address_request kernel_address_request = {
     .id = LIMINE_KERNEL_ADDRESS_REQUEST,
     .revision = 2
+};
+
+__attribute__((used, section(".requests")))
+static volatile struct limine_stack_size_request kernel_stack_request = {
+    .id = LIMINE_STACK_SIZE_REQUEST,
+    .revision = 2,
+    .stack_size = KERNEL_STACK_SIZE
 };
 
 
@@ -84,6 +93,8 @@ void kmain(void) {
     kterm_printf_newline("|                                                                 @@@@@@@    @@@@@@@@   |");
     kterm_printf_newline("=========================================================================================");
 
+    kterm_printf_newline("Framebuffer address: 0x%x", framebuffer_request.response->framebuffers[0]->address);
+
 
     // Print kernel address
     if(kernel_address_request.response == NULL){
@@ -94,6 +105,12 @@ void kmain(void) {
     kterm_printf_newline("Kernel physical base addr=0x%x Virtual base addr=0x%x", 
             kernel_address_request.response->physical_base, 
             kernel_address_request.response->virtual_base);
+    if(kernel_stack_request.response == NULL){
+        writestr_debug_serial("ERR: Bootloader did not provide kernel stack size response\n");
+        kterm_printf_newline("ERR: Bootloader did not provide kernel stack size response");
+        khalt();
+    }
+    kterm_printf_newline("Kernel stack size = 0x%x", KERNEL_STACK_SIZE);
 
     // Print memmap info
     if(memmap_request.response == NULL || memmap_request.response->entry_count < 1){
@@ -140,7 +157,7 @@ void kmain(void) {
                 typestr = "UNKNOWN";
                 break;
         }
-        kterm_printf_newline("Base=0x%x Length=0x%x Type=%s", 
+        kterm_printf_newline("  Base=0x%x Length=0x%x Type=%s", 
                 memmap_request.response->entries[i]->base,
                 memmap_request.response->entries[i]->length,
                 typestr);
@@ -153,72 +170,11 @@ void kmain(void) {
     */
     kterm_printf_newline("Number of bytes required for bytemap of total usable memory: %u bytes", usableMemSize / 4096);
 
-    /*
-        Usable memory should be mapped to continuous chunk of virtual addresses
-        Once this has been done, a bytemap can be assembled tracking which virtual addresses are allocated
-        This is just a simple way of doing things for now
-    */
-    /*
-        PML4 - 512 entries pointing to different page dir pointer tables
-        PDPT - 512 entries (per PDPT, of which there are 512) pointing to page directory tables
-        PDT - 512 entries (per PDT x512) pointing to pages
-        page - 4096 entries containing pointers to physical memory addresses of pages (0x1000 sized chunks of memory)
-    */
+    uint64_t cr3_val;
+    asm("mov %%cr3, %0" : "=r"(cr3_val));
+    kterm_printf_newline("CR3: 0x%x", cr3_val);
 
-    /*
-
-        find_free_phys_page(){
-            // For super super not optimised basic version 1, just iterate physical mem bitmap until free page found
-            for(bitmap entries){
-                if(entry free){
-                    return entry address;
-                }
-            }
-            return null; // no mem left
-        }
-
-        map_addr(){
-
-        }
-
-        allocate_new_page(virt_addr){ // Map the given virtual address to any available physical address
-            phsy_addr = find_free_phys_page()
-            map_addr(phys_addr, virt_addr);
-        }
-
-
-    */
-
+    
 
     khalt();
 }
-
-
-
-/*
-
-                                                                                                                   
-                                                                                                                   
-                                                                                        @@@@@@@@:       @@@@@@@@   
-  @@@@+   @@@@  @@@@@@@@@  @@@     @@ %@@@@@@@@@+    @@@@     @@    @@@@@@@           %@@@@   @@@@    @@@@    @@@  
-   @@@@   @@@@  .@         @@-     @@      @        @@ @@     @@   @@     @@         @@@@      @@@    @@@          
-   @@ @  @@ @@  .@@@@@@@@  @@@     @@     .@       @@@ -@@    @@@@@@       @@        @@@       @@@-   -@@@@@       
-   @@ @@ @  @@  .@@         @@@@@@@@@     .@       @@   @@@   @@  @@       @+ @@@@@ @@@@       @@@       @@@@@@    
-  .@@ =@@@  @@  :@@                @@     -@      @@@@@@@@@   @@   @@    -@@        @@@@      @@@@          @@@@   
-  @@@  @@@ =@@  @@@@@@@@@          @@     @@*    @@@     @@@  @@    @@@@@@#          @@@     @@@@    @-     :@@@   
-                                                                                     @@@@@@@@@@     @@@@@@@@@@@    
-                                                                                        @@@@#          @@@@@+      
-
-
-                                                                                       
-                                                                    @@@@       -@@@:   
- .@@@  @@@@ @@@@@@@ @@@   @@ @@@@@@@@   @@@    @@  @@@@@@         @@@@@@@@   @@@@@@@@@ 
-  @@@  @@@: #@      %@    @@    @*     @@ @    @  @@    @@      @@@     @@:  @@@       
-  @+@@ @ @: #@@@@@@ +@@@@@@@    @@     @  @@   @@@@@    @@      @@@     @@-   @@@@@    
-  @@ @%@ @: #@         #% @@    @@    @@@@@@@  @  @@    @@ @@@@ @@%    @@@       @@@=  
- .@@ @@  @@ @@@@@@@       @@    @@   @@    @@@ @@  @@@@@@       @@+   @@@   @@    @@@  
-                                                                 @@@@@@@    @@@@@@@@   
-                                                                                       
-                                                                                       
-                                                                                                                     
-*/
