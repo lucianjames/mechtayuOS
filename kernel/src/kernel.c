@@ -164,17 +164,12 @@ void kmain(void) {
     }
     kterm_printf_newline("Usable mem size: %u bytes across %u sections", usableMemSize, usableSections);
     kterm_printf_newline("Total mem size (not incl MEMMAP_RESERVED): %u bytes", totalMemory);
-    /*
-        4096 byte page size, use one byte per page to store various flags
-        usableMemSize / 4096
-    */
-    kterm_printf_newline("Number of bytes required for bytemap of total usable memory: %u bytes", usableMemSize / 4096);
-
+    
     uint64_t cr3_val;
     asm("mov %%cr3, %0" : "=r"(cr3_val));
     kterm_printf_newline("CR3: 0x%x", cr3_val);
 
-    
+
 
     khalt();
 }
