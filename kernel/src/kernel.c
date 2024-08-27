@@ -87,14 +87,16 @@ void kmain(void) {
     kterm_printf_newline("|                                                                    @@@@       -@@@:   |");
     kterm_printf_newline("| .@@@  @@@@ @@@@@@@ @@@   @@ @@@@@@@@   @@@    @@  @@@@@@         @@@@@@@@   @@@@@@@@@ |");
     kterm_printf_newline("|  @@@  @@@: #@      -@    @@    @*     @@ @    @  @@    @@      @@@     @@:  @@@       |");
-    kterm_printf_newline("|  @+@@ @ @: #@@@@@@ +@@@@@@@    @@     @  @@   @@@@@    @@      @@@     @@-   @@@@@    |");
-    kterm_printf_newline("|  @@ @-@ @: #@         #- @@    @@    @@@@@@@  @  @@    @@ @@@@ @@-    @@@       @@@=  |");
+    kterm_printf_newline("|  @+@@ @ @: #@@@@@@ +@@@@@@@    @@     @  @@   @@@@@    @@ @@@@ @@@     @@-   @@@@@    |");
+    kterm_printf_newline("|  @@ @-@ @: #@         #- @@    @@    @@@@@@@  @  @@    @@      @@-    @@@       @@@=  |");
     kterm_printf_newline("| .@@ @@  @@ @@@@@@@       @@    @@   @@    @@@ @@  @@@@@@       @@+   @@@   @@    @@@  |");
     kterm_printf_newline("|                                                                 @@@@@@@    @@@@@@@@   |");
     kterm_printf_newline("=========================================================================================");
 
     kterm_printf_newline("Framebuffer address: 0x%x", framebuffer_request.response->framebuffers[0]->address);
-
+    kterm_printf_newline("Framebuffer height: %u", framebuffer_request.response->framebuffers[0]->height);
+    kterm_printf_newline("Framebuffer width: %u", framebuffer_request.response->framebuffers[0]->width);
+    kterm_printf_newline("Framebuffer BPP: %u", framebuffer_request.response->framebuffers[0]->bpp);
 
     // Print kernel address
     if(kernel_address_request.response == NULL){
@@ -164,7 +166,7 @@ void kmain(void) {
     }
     kterm_printf_newline("Usable mem size: %u bytes across %u sections", usableMemSize, usableSections);
     kterm_printf_newline("Total mem size (not incl MEMMAP_RESERVED): %u bytes", totalMemory);
-    
+
     uint64_t cr3_val;
     asm("mov %%cr3, %0" : "=r"(cr3_val));
     kterm_printf_newline("CR3: 0x%x", cr3_val);
