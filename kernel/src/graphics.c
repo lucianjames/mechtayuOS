@@ -29,7 +29,7 @@ void draw_psf_char(const struct limine_framebuffer* framebuffer, int row_offset,
         Set up the pointers required to draw a character
     */
     psf1_header* header = (psf1_header*)&_binary_zap_vga09_psf_start;
-    unsigned char* psf = (unsigned char*)&_binary_zap_vga09_psf_start + 4 + (char_idx*9);
+    unsigned char* char_start = (unsigned char*)&_binary_zap_vga09_psf_start + 4 + (char_idx*9);
 
     /*
         Column offset changes with different BPP values
@@ -57,7 +57,7 @@ void draw_psf_char(const struct limine_framebuffer* framebuffer, int row_offset,
     for(int row=0; row<header->charsize; row++){
         for(int col=0; col<8; col++){
             uint32_t* pixel = (uint32_t*)(framebuffer->address + ((row+row_offset)*framebuffer->pitch) + (col+col_offset)*col_pixel_increment);
-            *pixel = (*(psf+row) << col & 0x80)? colour_white : colour_black; // 0x80 == 0b10000000
+            *pixel = (*(char_start+row) << col & 0x80)? colour_white : colour_black; // 0x80 == 0b10000000
         }
     }
 }
