@@ -8,6 +8,7 @@
 #include "kterminal.h"
 
 #define KERNEL_STACK_SIZE 0x4000
+#define PAGE_SIZE 0x1000
 
 /*
     Limine bootloader requests, see limine docs/examples for all the info
@@ -171,7 +172,63 @@ void kmain(void) {
     asm("mov %%cr3, %0" : "=r"(cr3_val));
     kterm_printf_newline("CR3: 0x%x", cr3_val);
 
+    /*
+        Create own page tables
 
+        Limine identity maps all memory to ffff800000000000 to give us a starting point.
+        Setting up a proper pmm/vmm is going to be very helpful!
+
+        First need to create a bitmap (or bytemap if want flags per page) to mark what memory is available
+        Will need iterate through memmap from bootloader and fill out the bitmap accordingly.
+        Find the first section of usable memory thats big enough for the memmap and use that to store it.
+
+        Once the bitmap has been created, page tables and essential phys:virt mappings can be made.
+        Most important things to add to the new page table include:
+        - map kernel to ffffffff800000000000
+        - map framebuffer to desired address
+        
+        Once page tables have been set up and filled with the basics so that the kernel wont immediately triple fault,
+        just change CR3 to point to the new PML4 :D
+
+        After that is done, decide a virt addr for kernel heap memory to go.
+        Whenever new heap memory is required, map any available physical page(s) on top of the heap mem :DD
+
+        Ill probably write a kbrk function before kmalloc, then have kmalloc utilise kbrk just like malloc and brk :DD
+    */
+
+    /*
+        Will need a function for mapping virt addr to physical addr, this function should create tables as theyre required.
+        This function will need to do lots of interacting with the physical memory manager to get new free pages a bunch.
+    */
+
+    // === Step 1: bytemap of physical mem
+    // Figure out how many bytes are needed
+    kterm_printf_newline("Total pages of memory: %u (0x%x)", totalMemory / PAGE_SIZE, totalMemory / PAGE_SIZE);
+    // Find first section in mmap that can fit the bytemap
+    uint64_t bytemap_base = 0x0;
+    for(int i=0; i<memmap_request.response->entry_count; i++){
+        if(memmap_request.response->entries[i]->type == LIMINE_MEMMAP_USABLE
+            && memmap_request.response->entries[i]->length > totalMemory / PAGE_SIZE
+        ){
+            bytemap_base = memmap_request.response->entries[i]->base;
+            kterm_printf_newline("Found mem section usable for bytemap at base addr: 0x%x with length 0x%x", bytemap_base, memmap_request.response->entries[i]->length);
+            break;
+        }
+    }
+    uint32_t bytemap_size_npages = ((totalMemory / PAGE_SIZE) / PAGE_SIZE) + 1;
+    kterm_printf_newline("Number of pages needed for bytemap: %u", bytemap_size_npages);
+    /*
+        Byte map structure
+        Each byte represents a page of memory (0x1000 bytes)
+        The byte contains the following information (counting from LSB as 1st bit):
+            1st bit : PAGE_FREE 1=FREE 0=USED
+            2nd bit -- 8th bit: unused for now
+    */
+    // Fill the byte map out with PAGE_USED (ensure entire array is 0x0)
+    for(uint64_t bytemapi = bytemap_base + 0xffff800000000000; bytemapi < bytemap_base + 0xffff800000000000 + (bytemap_size_npages * 0x1000); bytemapi++) {
+        debug_serial_printf("set 0x%x = 0\n", bytemapi);
+        *((char*)bytemapi)=0x0;
+    }
 
     khalt();
 }
