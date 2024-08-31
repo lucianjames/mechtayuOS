@@ -59,6 +59,8 @@ static void khalt(void) {
 }
 
 
+
+
 /*
     Kernel entry point
 */
@@ -94,7 +96,7 @@ void kmain(void) {
     kterm_printf_newline("|                                                                 @@@@@@@    @@@@@@@@   |");
     kterm_printf_newline("=========================================================================================");
 
-    kterm_printf_newline("Framebuffer address: 0x%x", framebuffer_request.response->framebuffers[0]->address);
+    kterm_printf_newline("Framebuffer (virtual) address: 0x%x", framebuffer_request.response->framebuffers[0]->address);
     kterm_printf_newline("Framebuffer height: %u", framebuffer_request.response->framebuffers[0]->height);
     kterm_printf_newline("Framebuffer width: %u", framebuffer_request.response->framebuffers[0]->width);
     kterm_printf_newline("Framebuffer BPP: %u", framebuffer_request.response->framebuffers[0]->bpp);
@@ -205,15 +207,18 @@ void kmain(void) {
     // Figure out how many bytes are needed
     kterm_printf_newline("Total pages of memory: %u (0x%x)", totalMemory / PAGE_SIZE, totalMemory / PAGE_SIZE);
     // Find first section in mmap that can fit the bytemap
-    uint64_t bytemap_base = 0x0;
+    uint64_t bytemap_base = UINT64_MAX;
     for(int i=0; i<memmap_request.response->entry_count; i++){
-        if(memmap_request.response->entries[i]->type == LIMINE_MEMMAP_USABLE
-            && memmap_request.response->entries[i]->length > totalMemory / PAGE_SIZE
-        ){
+        if(memmap_request.response->entries[i]->type == LIMINE_MEMMAP_USABLE && memmap_request.response->entries[i]->length > totalMemory / PAGE_SIZE){
             bytemap_base = memmap_request.response->entries[i]->base;
             kterm_printf_newline("Found mem section usable for bytemap at base addr: 0x%x with length 0x%x", bytemap_base, memmap_request.response->entries[i]->length);
             break;
         }
+    }
+    if(bytemap_base == UINT64_MAX){
+        kterm_printf_newline("FATAL ERR: no usable memory section found for bytemap");
+        debug_serial_printf("FATAL ERR: no usable memory section found for bytemap");
+        khalt();
     }
     uint32_t bytemap_size_npages = ((totalMemory / PAGE_SIZE) / PAGE_SIZE) + 1;
     kterm_printf_newline("Number of pages needed for bytemap: %u", bytemap_size_npages);
@@ -225,10 +230,77 @@ void kmain(void) {
             2nd bit -- 8th bit: unused for now
     */
     // Fill the byte map out with PAGE_USED (ensure entire array is 0x0)
-    for(uint64_t bytemapi = bytemap_base + 0xffff800000000000; bytemapi < bytemap_base + 0xffff800000000000 + (bytemap_size_npages * 0x1000); bytemapi++) {
-        debug_serial_printf("set 0x%x = 0\n", bytemapi);
-        *((char*)bytemapi)=0x0;
+    uint64_t bytemap_base_virtual = bytemap_base + 0xffff800000000000;
+    for(int i=0; i < bytemap_size_npages * 0x1000; i++) {
+        ((char*)bytemap_base_virtual)[i] = 0x0;
+        //debug_serial_printf("set 0x%x = 0\n", &((char*)bytemap_base_virtual)[i]);
     }
+
+    // Iterate through memmap and mark usable pages as such
+    for(int i=0; i<memmap_request.response->entry_count; i++){
+        if(memmap_request.response->entries[i]->type == LIMINE_MEMMAP_USABLE){
+            uint64_t usable_section_base = memmap_request.response->entries[i]->base;
+            uint64_t usable_section_base_page = usable_section_base / PAGE_SIZE;
+            uint64_t usable_section_len_pages = memmap_request.response->entries[i]->length / PAGE_SIZE;
+            kterm_printf_newline("Usable section at base 0x%x (page no %u) with len %u pages", usable_section_base, usable_section_base_page, usable_section_len_pages);
+            for(int i=usable_section_base_page; i<usable_section_base_page+usable_section_len_pages; i++){
+                ((char*)bytemap_base_virtual)[i] = 0b00000001;
+                //debug_serial_printf("set 0x%x = 0b00000001\n", &((char*)bytemap_base_virtual)[i]);
+            }
+        }
+    }
+    // Now these free pages can be found
+
+    // === Step 2: Create page tables with critically important entries (kernel, framebuffer)
+    // Example mapping kernel physical 0x7e3a000 to virt 0xffffffff80000000:
+    // 0xffffffff80000000 = 0b1111111111111111111111111111111110000000000000000000000000000000
+    // first 16 bits unused:0b----------------111111111111111110000000000000000000000000000000
+    // PML4->PDP = 0b----------------<111111111>111111110000000000000000000000000000000 = 512
+    // PDP->PD = 0b----------------111111111<111111110>000000000000000000000000000000 = 511
+    // PD->PT = 0b----------------111111111111111110<000000000>000000000000000000000 = 0
+    // PT->PTE = 0b----------------111111111111111110000000000<000000000>000000000000 = 0
+    // PTE + page offset = 0b----------------111111111111111110000000000000000000<000000000000> = 0
+
+    // Find kernel base addr + len
+    uint64_t kernel_physical_addr;
+    uint64_t kernel_length;
+    for(int i=0; i<memmap_request.response->entry_count; i++){
+        if(memmap_request.response->entries[i]->type == LIMINE_MEMMAP_KERNEL_AND_MODULES){
+            kernel_physical_addr = memmap_request.response->entries[i]->base;
+            kernel_length = memmap_request.response->entries[i]->length;
+        }
+    }
+
+    /*
+    Page table stuff just here for testing purposes
+    */
+    uint64_t kPML4[512] __attribute__((aligned(4096)));
+    uint64_t kPDP_1[512] __attribute__((aligned(4096)));
+    uint64_t kPD_1[512] __attribute__((aligned(4096)));
+    uint64_t kPT_1[512] __attribute__((aligned(4096)));
+
+    // Zero out the test page tables
+    for(int i=0; i<512; i++){
+        kPML4[i] = 0x0;
+        kPDP_1[i] = 0x0;
+        kPD_1[i] = 0x0;
+        kPT_1[i] = 0x0;
+    }
+
+    kPML4[511] = ((uint64_t)kPDP_1 - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000001100011;
+    kPDP_1[510] = ((uint64_t)kPD_1 - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000001100011;
+    kPD_1[0] = ((uint64_t)kPT_1 - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000001100011;
+    for(int i=0; i<kernel_length/0x1000; i++){
+        kPT_1[i] = kernel_physical_addr + (0x1000 * i) | 0b1000000000000000000000000000000000000000000000000000000001100011;
+    }
+    
+    uint64_t pml4_physical_addr = ((uint64_t)kPML4) - 0xffff800000000000;
+    kterm_printf_newline("new PML4 physical addr: 0x%x", pml4_physical_addr);
+
+    debug_serial_printf("Switching CR3... prepare to crash... ");
+    asm volatile("mov %0, %%cr3" :: "r"(pml4_physical_addr));
+
+    debug_serial_printf("Didnt crash :D");
 
     khalt();
 }
