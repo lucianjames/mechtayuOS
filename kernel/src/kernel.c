@@ -212,11 +212,10 @@ void kmain(void) {
     /*
     Page table stuff just here for testing purposes
     */
-    uint64_t kPML4[512] __attribute__((aligned(4096)));
-    uint64_t kPDP_1[512] __attribute__((aligned(4096)));
+    uint64_t* kPML4 = (uint64_t*)alloc_pages(1);
+    uint64_t* kPDP_1 = (uint64_t*)alloc_pages(1);
     uint64_t kPD_1[512] __attribute__((aligned(4096)));
     uint64_t kPT_1[512] __attribute__((aligned(4096)));
-
     // Zero out the test page tables
     for(int i=0; i<512; i++){
         kPML4[i] = 0x0;
@@ -225,20 +224,29 @@ void kmain(void) {
         kPT_1[i] = 0x0;
     }
 
-    kPML4[511] = (((uint64_t)kPDP_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000001100011;
-    kPDP_1[510] = (((uint64_t)kPD_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000001100011;
-    kPD_1[0] = (((uint64_t)kPT_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000001100011;
+    kPML4[511] = ((unsigned long)kPDP_1 - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
+    kPDP_1[510] = (((uint64_t)kPD_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
+    kPD_1[0] = (((uint64_t)kPT_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
     for(int i=0; i<kernel_length/0x1000; i++){
-        kPT_1[i] = kernel_physical_addr + (0x1000 * i) | 0b1000000000000000000000000000000000000000000000000000000001100011;
+        kPT_1[i] = kernel_physical_addr + (0x1000 * i) | 0b1000000000000000000000000000000000000000000000000000000000000011;
     }
     
     uint64_t pml4_physical_addr = ((uint64_t)kPML4) - 0xffff800000000000;
     kterm_printf_newline("new PML4 physical addr: 0x%x", pml4_physical_addr);
 
-    //debug_serial_printf("Switching CR3... prepare to crash... ");
-    //asm volatile("mov %0, %%cr3" :: "r"(pml4_physical_addr));
+    // Add more shit to the stack!!!
+    int x[512] = {0};
 
-    //debug_serial_printf("Didnt crash :D");
+    //CR2=ffffffff80001090
+    //RSP=ffff8000bfe93000
+
+    //CR2=ffffffff800010a7
+    //RSP=ffff8000bfe92000
+
+
+    debug_serial_printf("Switching CR3... prepare to crash... ");
+    asm volatile("mov %0, %%cr3" :: "r"(pml4_physical_addr));
+    debug_serial_printf("Didnt crash :D");
 
     khalt();
 }
