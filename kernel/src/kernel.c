@@ -214,8 +214,8 @@ void kmain(void) {
     */
     uint64_t* kPML4 = (uint64_t*)alloc_pages(1);
     uint64_t* kPDP_1 = (uint64_t*)alloc_pages(1);
-    uint64_t kPD_1[512] __attribute__((aligned(4096)));
-    uint64_t kPT_1[512] __attribute__((aligned(4096)));
+    uint64_t* kPD_1 = (uint64_t*)alloc_pages(1);
+    uint64_t* kPT_1 = (uint64_t*)alloc_pages(1);
     // Zero out the test page tables
     for(int i=0; i<512; i++){
         kPML4[i] = 0x0;
@@ -224,7 +224,7 @@ void kmain(void) {
         kPT_1[i] = 0x0;
     }
 
-    kPML4[511] = ((unsigned long)kPDP_1 - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
+    kPML4[511] = ((uint64_t)kPDP_1 - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
     kPDP_1[510] = (((uint64_t)kPD_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
     kPD_1[0] = (((uint64_t)kPT_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
     for(int i=0; i<kernel_length/0x1000; i++){
