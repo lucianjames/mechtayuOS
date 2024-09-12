@@ -92,5 +92,8 @@ char* pmm_alloc_pages(const int n_pages){
         }
     }
 
+    debug_serial_printf("FATAL ERR: PMM_OOM\n");
+    khalt();
+
     return allocStartAddr;
 }

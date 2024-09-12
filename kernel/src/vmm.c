@@ -66,33 +66,39 @@ int vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags){
     /*
         Assemble PTE
     */
-    uint64_t PTE = (flags & 0b1000000000000000000000000000000000000000000000000000111111111111) 
+    uint64_t flagFilter = 0b1000000000000000000000000000000000000000000000000000111111111111;
+    flags &= flagFilter;
+
+    uint64_t PTE = (flags) 
                     | ((phys_addr / PAGE_SIZE) << PAGE_BITSIZE);
 
-    debug_serial_printf("New PTE: 0x%x", PTE);
+    debug_serial_printf("New PTE: 0x%x\n", PTE);
 
     /*
         Walk through page tables to find PT to insert PTE into
     */
     uint64_t* PML4_virtAddr = (uint64_t*)translateaddr_p2v((uint64_t)_vmm_PML4_physAddr);
-    uint64_t PDP_physAddr = PML4_virtAddr[va_PML4_offset];
+    uint64_t PDP_physAddr = PML4_virtAddr[va_PML4_offset] & (~flagFilter);
     if(PDP_physAddr == 0x0){
         PML4_virtAddr[va_PML4_offset] = (uint64_t)pmm_alloc_pages(1);
-        PDP_physAddr = PML4_virtAddr[va_PML4_offset];
+        PDP_physAddr = PML4_virtAddr[va_PML4_offset] & (~flagFilter);
+        PML4_virtAddr[va_PML4_offset] |= flags;
     }
 
     uint64_t* PDP_virtAddr = (uint64_t*)translateaddr_p2v((uint64_t)PDP_physAddr);
-    uint64_t PD_physAddr = PDP_virtAddr[va_PDP_offset];
+    uint64_t PD_physAddr = PDP_virtAddr[va_PDP_offset] & (~flagFilter);
     if(PD_physAddr == 0x0){
         PDP_virtAddr[va_PDP_offset] = (uint64_t)pmm_alloc_pages(1);
         PD_physAddr = PDP_virtAddr[va_PDP_offset];
+        PDP_virtAddr[va_PDP_offset] |= flags;
     }
 
     uint64_t* PD_virtAddr = (uint64_t*)translateaddr_p2v((uint64_t)PD_physAddr);
-    uint64_t PT_physAddr = PD_virtAddr[va_PD_offset];
+    uint64_t PT_physAddr = PD_virtAddr[va_PD_offset] & (~flagFilter);
     if(PT_physAddr == 0x0){
         PD_virtAddr[va_PD_offset] = (uint64_t)pmm_alloc_pages(1);
         PT_physAddr = PD_virtAddr[va_PD_offset];
+        PD_virtAddr[va_PD_offset] |= flags;
     }
 
     uint64_t* PT_virtAddr = (uint64_t*)translateaddr_p2v((uint64_t)PT_physAddr);
@@ -103,5 +109,5 @@ int vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags){
 }
 
 void vmm_switchCR3(){
-    asm volatile("mov %0, %%cr3" :: "r"(_vmm_PML4_physAddr));
+    asm volatile("mov %0, %%cr3" :: "r"((uint64_t)_vmm_PML4_physAddr));
 }
