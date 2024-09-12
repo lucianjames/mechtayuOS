@@ -195,11 +195,19 @@ void kmain(void) {
     }
 
     // Map kernel 
-    vmm_map_phys2virt(kernel_physical_addr, 0xffffffff80000000, 0b1000000000000000000000000000000000000000000000000000000000100011);
-    vmm_map_phys2virt(kernel_physical_addr + 0x1000, 0xffffffff80001000, 0b1000000000000000000000000000000000000000000000000000000000100011);
-    vmm_map_phys2virt(kernel_physical_addr + 0x2000, 0xffffffff80002000, 0b1000000000000000000000000000000000000000000000000000000000100011);
+    for(int i=0; i<(kernel_length / PAGE_SIZE)+1; i++){
+        vmm_map_phys2virt(kernel_physical_addr + (i*PAGE_SIZE), 0xffffffff80000000 + (i*PAGE_SIZE), 0b1000000000000000000000000000000000000000000000000000000000100011);
+    }
 
-    // 
+    // Map stack
+    uint64_t rsp_val;
+    asm("mov %%rsp, %0" : "=r"(rsp_val));
+    rsp_val = translateaddr_v2p(rsp_val);
+    kterm_printf_newline("RSP: 0x%x", rsp_val);
+    for(int i=0; i<(KERNEL_STACK_SIZE/PAGE_SIZE)+1; i++){
+        vmm_map_phys2virt(rsp_val + (i*PAGE_SIZE), rsp_val + 0xffff800000000000 + (i*PAGE_SIZE), 0b1000000000000000000000000000000000000000000000000000000000100011);
+    }
+
     debug_serial_printf("Switching CR3... prepare to crash... ");
     vmm_switchCR3();
     debug_serial_printf("Didnt crash :D");

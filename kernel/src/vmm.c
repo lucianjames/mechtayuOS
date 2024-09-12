@@ -72,7 +72,7 @@ int vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags){
     uint64_t PTE = (flags) 
                     | ((phys_addr / PAGE_SIZE) << PAGE_BITSIZE);
 
-    debug_serial_printf("New PTE: 0x%x\n", PTE);
+    //debug_serial_printf("New PTE: 0x%x\n", PTE);
 
     /*
         Walk through page tables to find PT to insert PTE into
@@ -110,4 +110,5 @@ int vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags){
 
 void vmm_switchCR3(){
     asm volatile("mov %0, %%cr3" :: "r"((uint64_t)_vmm_PML4_physAddr));
+    g_vmm_usingLiminePageTables = false;
 }
