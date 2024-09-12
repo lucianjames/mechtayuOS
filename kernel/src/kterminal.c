@@ -5,7 +5,7 @@ int G_KTERM_MAXROW = 0;
 int G_KTERM_MAXCOL = 0;
 struct limine_framebuffer* G_KTERM_FRAMEBUFF;
 
-void kterm_init(const struct limine_framebuffer* framebuffer){
+void kterm_init(struct limine_framebuffer* framebuffer){
     G_KTERM_FRAMEBUFF = framebuffer;
 
     /*

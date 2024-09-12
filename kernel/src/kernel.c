@@ -9,6 +9,7 @@
 #include "constants.h"
 #include "utility.h"
 #include "pmm.h"
+#include "vmm.h"
 
 /*
     Limine bootloader requests, see limine docs/examples for all the info
@@ -177,17 +178,42 @@ void kmain(void) {
     kterm_printf_newline("CR3: 0x%x", cr3_val);
 
     // Set up PMM
-    setup_bytemap(memmap_request);
+    pmm_setup_bytemap(memmap_request);
     kterm_printf_newline("Bytemap base: 0x%x", g_kbytemap.base);
     kterm_printf_newline("Bytemap size (bytes): %u (0x%x), (n_pages): %u", g_kbytemap.size_npages * PAGE_SIZE, g_kbytemap.size_npages * PAGE_SIZE, g_kbytemap.size_npages);
 
+    // Set up VMM
+    vmm_setup(); // Allocs page for pml4, sets g_vmm_usingLiminePageTables = true
+
+    uint64_t kernel_physical_addr;
+    uint64_t kernel_length;
+    for(uint64_t i=0; i<memmap_request.response->entry_count; i++){
+        if(memmap_request.response->entries[i]->type == LIMINE_MEMMAP_KERNEL_AND_MODULES){
+            kernel_physical_addr = memmap_request.response->entries[i]->base;
+            kernel_length = memmap_request.response->entries[i]->length;
+        }
+    }
+
+    // Map kernel 
+    vmm_map_phys2virt(kernel_physical_addr, 0xffffffff80000000, 0b1000000000000000000000000000000000000000000000000000000000100011);
+    vmm_map_phys2virt(kernel_physical_addr + 0x1000, 0xffffffff80001000, 0b1000000000000000000000000000000000000000000000000000000000100011);
+    vmm_map_phys2virt(kernel_physical_addr + 0x2000, 0xffffffff80002000, 0b1000000000000000000000000000000000000000000000000000000000100011);
+
+    // 
+    debug_serial_printf("Switching CR3... prepare to crash... ");
+    vmm_switchCR3();
+    debug_serial_printf("Didnt crash :D");
+
+
     // Test PMM
-    char* allocatedPage = alloc_pages(1);
-    kterm_printf_newline("alloc_pages(1) result: 0x%x", allocatedPage);
+    /*
+    char* allocatedPage = pmm_alloc_pages(1);
+    kterm_printf_newline("pmm_alloc_pages(1) result: 0x%x", allocatedPage);
     kterm_printf_newline("Writing %u bytes to allocated page", PAGE_SIZE);
     for(int i=0; i<PAGE_SIZE; i++){
         allocatedPage[i] = 0x69;
     }
+    */
 
     // === Step 2: Create page tables with critically important entries (kernel, framebuffer)
     // Example mapping kernel physical 0x7e3a000 to virt 0xffffffff80000000:
@@ -200,22 +226,13 @@ void kmain(void) {
     // PTE + page offset = 0b----------------111111111111111110000000000000000000<000000000000> = 0
 
     // Find kernel base addr + len
-    uint64_t kernel_physical_addr;
-    uint64_t kernel_length;
-    for(int i=0; i<memmap_request.response->entry_count; i++){
-        if(memmap_request.response->entries[i]->type == LIMINE_MEMMAP_KERNEL_AND_MODULES){
-            kernel_physical_addr = memmap_request.response->entries[i]->base;
-            kernel_length = memmap_request.response->entries[i]->length;
-        }
-    }
 
     /*
     Page table stuff just here for testing purposes
-    */
-    uint64_t* kPML4 = (uint64_t*)alloc_pages(1);
-    uint64_t* kPDP_1 = (uint64_t*)alloc_pages(1);
-    uint64_t* kPD_1 = (uint64_t*)alloc_pages(1);
-    uint64_t* kPT_1 = (uint64_t*)alloc_pages(1);
+    uint64_t* kPML4 = (uint64_t*)pmm_alloc_pages(1);
+    uint64_t* kPDP_1 = (uint64_t*)pmm_alloc_pages(1);
+    uint64_t* kPD_1 = (uint64_t*)pmm_alloc_pages(1);
+    uint64_t* kPT_1 = (uint64_t*)pmm_alloc_pages(1);
     // Zero out the test page tables
     for(int i=0; i<512; i++){
         kPML4[i] = 0x0;
@@ -227,15 +244,13 @@ void kmain(void) {
     kPML4[511] = ((uint64_t)kPDP_1 - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
     kPDP_1[510] = (((uint64_t)kPD_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
     kPD_1[0] = (((uint64_t)kPT_1) - 0xffff800000000000 ) | 0b1000000000000000000000000000000000000000000000000000000000100011;
-    for(int i=0; i<kernel_length/0x1000; i++){
-        kPT_1[i] = kernel_physical_addr + (0x1000 * i) | 0b1000000000000000000000000000000000000000000000000000000000000011;
+    for(uint64_t i=0; i<kernel_length/0x1000; i++){
+        kPT_1[i] = (kernel_physical_addr + (0x1000 * i)) | 0b1000000000000000000000000000000000000000000000000000000000000011;
     }
     
     uint64_t pml4_physical_addr = ((uint64_t)kPML4) - 0xffff800000000000;
     kterm_printf_newline("new PML4 physical addr: 0x%x", pml4_physical_addr);
-
-    // Add more shit to the stack!!!
-    int x[512] = {0};
+    */
 
     //CR2=ffffffff80001090
     //RSP=ffff8000bfe93000
@@ -244,9 +259,9 @@ void kmain(void) {
     //RSP=ffff8000bfe92000
 
 
-    debug_serial_printf("Switching CR3... prepare to crash... ");
-    asm volatile("mov %0, %%cr3" :: "r"(pml4_physical_addr));
-    debug_serial_printf("Didnt crash :D");
+    //debug_serial_printf("Switching CR3... prepare to crash... ");
+    //asm volatile("mov %0, %%cr3" :: "r"(pml4_physical_addr));
+    //debug_serial_printf("Didnt crash :D");
 
     khalt();
 }

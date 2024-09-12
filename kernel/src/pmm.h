@@ -16,8 +16,8 @@ struct bytemap_info{
 
 extern struct bytemap_info g_kbytemap;
 
-void setup_bytemap(struct limine_memmap_request memmap_request);
-char* alloc_pages(const int n_pages);
+void pmm_setup_bytemap(struct limine_memmap_request memmap_request);
+char* pmm_alloc_pages(const int n_pages);
 
 #endif
 
