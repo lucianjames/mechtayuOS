@@ -81,7 +81,7 @@ void vmm_setup(const struct limine_memmap_response memmap_response){
         ===
     */
     for(int i=0; i<g_kbytemap_info.size_npages; i++){
-        vmm_map_phys2virt(g_kbytemap_info.base + (i*PAGE_SIZE), g_kbytemap_info.base + VMM_IDENTITY_MAP_OFFSET + (i*PAGE_SIZE), 0x3);
+        vmm_map_phys2virt(g_kbytemap_info.base_phys + (i*PAGE_SIZE), g_kbytemap_info.base_phys + VMM_IDENTITY_MAP_OFFSET + (i*PAGE_SIZE), 0x3);
     }
     
     /*
@@ -97,7 +97,7 @@ void vmm_setup(const struct limine_memmap_response memmap_response){
     Uses the PML4 at _vmm_PML4_physAddr.
     Creates additional tables as required.
 */
-int vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags){
+uint64_t vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags){
     /*
         Extract page table offsets from virtual address
     */
@@ -164,7 +164,22 @@ int vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags){
     // Insert the page table entry
     PT_virtAddr[va_PT_offset] = PTE;
 
-    return 0;
+    return virt_addr;
+}
+
+uint64_t vmm_identity_map_page(uint64_t phys_addr, uint64_t flags){
+    return vmm_map_phys2virt(phys_addr, phys_addr + VMM_IDENTITY_MAP_OFFSET, flags);
+}
+
+uint64_t vmm_identity_map_n_pages(uint64_t phys_base_addr, int n_pages, uint64_t flags){
+    uint64_t res = 0;
+    for(int i=0; i<n_pages; i++){
+        uint64_t vaddr = vmm_identity_map_page(phys_base_addr + (i*PAGE_SIZE), flags);
+        if(i==0){
+            res = vaddr;
+        }
+    }
+    return res;
 }
 
 void vmm_switchCR3(){
