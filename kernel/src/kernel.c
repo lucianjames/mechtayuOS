@@ -42,13 +42,18 @@ static volatile struct limine_stack_size_request kernel_stack_request = {
     .stack_size = KERNEL_STACK_SIZE
 };
 
+__attribute__((used, section(".requests")))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST,
+    .revision = 0
+};
+
 
 __attribute__((used, section(".requests_start_marker")))
 static volatile LIMINE_REQUESTS_START_MARKER;
 
 __attribute__((used, section(".requests_end_marker")))
 static volatile LIMINE_REQUESTS_END_MARKER;
-
 
 
 
@@ -196,21 +201,24 @@ void kmain(void) {
 
     // Map kernel 
     for(int i=0; i<(kernel_length / PAGE_SIZE)+1; i++){
-        vmm_map_phys2virt(kernel_physical_addr + (i*PAGE_SIZE), 0xffffffff80000000 + (i*PAGE_SIZE), 0b1000000000000000000000000000000000000000000000000000000000100011);
+        vmm_map_phys2virt(kernel_physical_addr + (i*PAGE_SIZE), 0xffffffff80000000 + (i*PAGE_SIZE), 0x03);
     }
 
     // Map stack
     uint64_t rsp_val;
     asm("mov %%rsp, %0" : "=r"(rsp_val));
+    kterm_printf_newline("RSP (virtual): 0x%x", rsp_val);
     rsp_val = translateaddr_v2p(rsp_val);
-    kterm_printf_newline("RSP: 0x%x", rsp_val);
+    kterm_printf_newline("RSP (translated to physical): 0x%x", rsp_val);
     for(int i=0; i<(KERNEL_STACK_SIZE/PAGE_SIZE)+1; i++){
-        vmm_map_phys2virt(rsp_val + (i*PAGE_SIZE), rsp_val + 0xffff800000000000 + (i*PAGE_SIZE), 0b1000000000000000000000000000000000000000000000000000000000100011);
+        vmm_map_phys2virt(rsp_val + (i*PAGE_SIZE), rsp_val + 0xffff800000000000 + (i*PAGE_SIZE), 0x03);
     }
 
     debug_serial_printf("Switching CR3... prepare to crash... ");
     vmm_switchCR3();
     debug_serial_printf("Didnt crash :D");
+
+    // kterm_printf_newline("Custom vmm successfully initialised"); // TODO map framebuff
 
 
     // Test PMM
