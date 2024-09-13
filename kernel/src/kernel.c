@@ -127,6 +127,23 @@ void kmain(void) {
     vmm_setup(k_memmap_info);
 
     /*
+        Map memmap response to new virtual address
+    */
+    uint64_t memmap_entries_physaddr = translateaddr_idmap_v2p_limine((uint64_t)k_memmap_info.entries);
+    vmm_map_phys2virt(memmap_entries_physaddr, memmap_entries_physaddr + VMM_IDENTITY_MAP_OFFSET, 0x3);
+    k_memmap_info.entries = (struct limine_memmap_entry**)(memmap_entries_physaddr + VMM_IDENTITY_MAP_OFFSET);
+
+    // Also map the page cointaining the memmap:
+    uint64_t memmap_entries_start_physaddr = translateaddr_idmap_v2p_limine((uint64_t)k_memmap_info.entries[0]);
+    vmm_map_phys2virt(memmap_entries_start_physaddr, memmap_entries_start_physaddr + VMM_IDENTITY_MAP_OFFSET, 0x3);
+
+
+    for(int i=0; i< k_memmap_info.entry_count; i++){
+        uint64_t memmap_entry_physaddr = translateaddr_idmap_v2p_limine((uint64_t)k_memmap_info.entries[i]);
+        k_memmap_info.entries[i] = (struct limine_memmap_entry*)(memmap_entry_physaddr + VMM_IDENTITY_MAP_OFFSET);
+    }
+
+    /*
         Set up framebuffer + kterm
     */
     uint64_t framebuffer_physical_address = translateaddr_idmap_v2p_limine((uint64_t)k_framebuffer.address);
@@ -151,89 +168,17 @@ void kmain(void) {
     kterm_printf_newline("|                                                                 @@@@@@@    @@@@@@@@   |");
     kterm_printf_newline("=========================================================================================");
 
-
-
-    khalt();
-
-
-
-    /*=
-==================================== BELOW CODE WONT RUN ===========================================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // Set up PMM
-    pmm_setup_bytemap(k_memmap_info);
-
-    // Set up VMM - this function will create basic mappings that allow the kernel to continue to execute.
-    // This provides VERY minimal mapping. ONLY kernel + stack + page table + bytemap will be mapped.
-    vmm_setup(k_memmap_info);
-
-    k_memmap_info.entries = (struct limine_memmap_entry **)translateaddr_idmap_v2p_limine((uint64_t)k_memmap_info.entries);
-    vmm_map_phys2virt((uint64_t)k_memmap_info.entries, (uint64_t)k_memmap_info.entries + VMM_IDENTITY_MAP_OFFSET, 0x03);
-    k_memmap_info.entries = (struct limine_memmap_entry **)translateaddr_idmap_p2v((uint64_t)k_memmap_info.entries);
-
-    // Set up virtual address for framebuffer
-    uint64_t framebuffer_physical_address = translateaddr_idmap_v2p_limine((uint64_t)k_framebuffer.address);
-    uint64_t framebuffer_length_bytes = (k_framebuffer.height * k_framebuffer.width * k_framebuffer.bpp) / 8;
-    int framebuffer_length_pages = (framebuffer_length_bytes / PAGE_SIZE) + 1;
-    
-    for(int i=0; i<framebuffer_length_pages; i++){
-        vmm_map_phys2virt(framebuffer_physical_address + (i*PAGE_SIZE), framebuffer_physical_address + VMM_IDENTITY_MAP_OFFSET + (i*PAGE_SIZE), 0x3);
-    }
-
-    k_framebuffer.address = (void*)(framebuffer_physical_address + VMM_IDENTITY_MAP_OFFSET);
-
+    /*
+        Print system information
     */
-    
-
-    // Now that framebuffer is confirmed to exist, print first message to indicate start of boot! :D
-    writestr_debug_serial("======================\n");
-    writestr_debug_serial("Hello from the kernel!\n");
-    writestr_debug_serial("======================\n");
-    serial_dump_psf_info();
-
-    //kterm_init(k_framebuffer);
-
-    kterm_printf_newline("=========================================================================================");
-    kterm_printf_newline("|                                                                    @@@@       -@@@:   |");
-    kterm_printf_newline("| .@@@  @@@@ @@@@@@@ @@@   @@ @@@@@@@@   @@@    @@  @@@@@@         @@@@@@@@   @@@@@@@@@ |");
-    kterm_printf_newline("|  @@@  @@@: #@      -@    @@    @*     @@ @    @  @@    @@      @@@     @@:  @@@       |");
-    kterm_printf_newline("|  @+@@ @ @: #@@@@@@ +@@@@@@@    @@     @  @@   @@@@@    @@ @@@@ @@@     @@-   @@@@@    |");
-    kterm_printf_newline("|  @@ @-@ @: #@         #- @@    @@    @@@@@@@  @  @@    @@      @@-    @@@       @@@=  |");
-    kterm_printf_newline("| .@@ @@  @@ @@@@@@@       @@    @@   @@    @@@ @@  @@@@@@       @@+   @@@   @@    @@@  |");
-    kterm_printf_newline("|                                                                 @@@@@@@    @@@@@@@@   |");
-    kterm_printf_newline("=========================================================================================");
-
-    //kterm_printf_newline("Framebuffer (virtual) address: 0x%x", framebuffer_request.response->framebuffers[0]->address);
-    //kterm_printf_newline("Framebuffer height: %u", framebuffer_request.response->framebuffers[0]->height);
-    //kterm_printf_newline("Framebuffer width: %u", framebuffer_request.response->framebuffers[0]->width);
-    //kterm_printf_newline("Framebuffer BPP: %u", framebuffer_request.response->framebuffers[0]->bpp);
-
+    kterm_printf_newline("Framebuffer (virtual) address: 0x%x", k_framebuffer.address);
+    kterm_printf_newline("Framebuffer height: %u", k_framebuffer.height);
+    kterm_printf_newline("Framebuffer width: %u", k_framebuffer.width);
+    kterm_printf_newline("Framebuffer BPP: %u", k_framebuffer.bpp);
     kterm_printf_newline("Bytemap base: 0x%x", g_kbytemap_info.base);
     kterm_printf_newline("Bytemap size (bytes): %u (0x%x), (n_pages): %u", g_kbytemap_info.size_npages * PAGE_SIZE, g_kbytemap_info.size_npages * PAGE_SIZE, g_kbytemap_info.size_npages);
-
-    kterm_printf_newline("Kernel physical base addr=0x%x Virtual base addr=0x%x", 
-            kernel_address_request.response->physical_base, 
-            kernel_address_request.response->virtual_base);
+    kterm_printf_newline("Kernel physical base addr=0x%x Virtual base addr=0x%x", k_kerneladdr_info.physical_base, k_kerneladdr_info.virtual_base);
     kterm_printf_newline("Kernel stack size = 0x%x", KERNEL_STACK_SIZE);
-
     kterm_printf_newline("MMAP:");
     size_t usableMemSize = 0;
     size_t usableSections = 0;
@@ -280,8 +225,8 @@ void kmain(void) {
     }
     kterm_printf_newline("Usable mem size: %u bytes across %u sections", usableMemSize, usableSections);
     kterm_printf_newline("Total mem size (not incl MEMMAP_RESERVED): %u bytes", totalMemory);
-
     
+
 
 
     khalt();
