@@ -8,15 +8,16 @@
 
 #include "utility.h"
 #include "serialout.h"
+#include "vmm.h"
 
 struct bytemap_info{
     uint64_t base;
     uint32_t size_npages;
 };
 
-extern struct bytemap_info g_kbytemap;
+extern struct bytemap_info g_kbytemap_info;
 
-void pmm_setup_bytemap(struct limine_memmap_request memmap_request);
+void pmm_setup_bytemap(struct limine_memmap_response memmap_response);
 char* pmm_alloc_pages(const int n_pages);
 
 #endif
