@@ -253,13 +253,5 @@ void kmain(void) {
     */
 
 
-    /*
-        Test PMM + VMM stuff a bit more
-    */
-    char* x = pmm_alloc_pages(1); // This memory is inaccessible as it is not mapped
-    // Page fault:
-    //x[0] = 0x69;
-
-
     khalt();
 }
