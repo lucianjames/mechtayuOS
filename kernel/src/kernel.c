@@ -10,10 +10,16 @@
 #include "utility.h"
 #include "pmm.h"
 #include "vmm.h"
+#include "gdt.h"
 
 /*
     Limine bootloader requests, see limine docs/examples for all the info
 */
+
+
+__attribute__((used, section(".requests_start_marker")))
+static volatile LIMINE_REQUESTS_START_MARKER;
+
 __attribute__((used, section(".requests")))
 static volatile LIMINE_BASE_REVISION(2);
 
@@ -47,10 +53,6 @@ static volatile struct limine_hhdm_request hhdm_request = {
     .id = LIMINE_HHDM_REQUEST,
     .revision = 0
 };
-
-
-__attribute__((used, section(".requests_start_marker")))
-static volatile LIMINE_REQUESTS_START_MARKER;
 
 __attribute__((used, section(".requests_end_marker")))
 static volatile LIMINE_REQUESTS_END_MARKER;
@@ -117,6 +119,7 @@ void kmain(void) {
     struct limine_memmap_response k_memmap_info = *memmap_request.response;
     struct limine_framebuffer k_framebuffer = *framebuffer_request.response->framebuffers[0];
 
+
     /*
         Set up PMM
     */
@@ -130,6 +133,14 @@ void kmain(void) {
     */
     debug_serial_printf("Setting up VMM... ");
     vmm_setup(k_memmap_info);
+    
+    /*
+        Set up GDT
+        Limine provides one that works, but its best we are in control of it.
+    */
+    debug_serial_printf("Setting up GDT... ");
+    gdt_setup();
+    debug_serial_printf("OK\n");
 
     /*
         Map memmap response to new virtual address
