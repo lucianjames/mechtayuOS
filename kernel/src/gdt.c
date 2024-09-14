@@ -39,8 +39,15 @@ void gdt_setup(){
         Kernel code segment
     */
     gdt_entries[1] = gdt_create_descriptor(0, 0x000FFFFF, (GDT_CODE_PL0));
+
+    /*
+        Kernel data segment
+    */
     gdt_entries[2] = gdt_create_descriptor(0, 0x000FFFFF, (GDT_DATA_PL0));
 
+    /*
+        Set up gdt descriptor
+    */
     gdt_descriptor_instance.virt_addr = (uint64_t)&gdt_entries;
     gdt_descriptor_instance.size = GDT_N_ENTRIES * sizeof(uint64_t);
 
