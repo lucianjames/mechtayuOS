@@ -3,7 +3,7 @@
 
 #include <stdarg.h>
 
-#include "limine.h"
+#include "third-party/limine.h"
 #include "graphics.h"
 
 void kterm_init(struct limine_framebuffer* framebuffer);

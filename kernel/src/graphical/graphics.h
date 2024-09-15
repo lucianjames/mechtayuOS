@@ -1,8 +1,8 @@
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
-#include "limine.h" // For limine framebuffer info struct
-#include "serialout.h"
+#include "third-party/limine.h" // For limine framebuffer info struct
+#include "debugging/serialout.h"
 
 
 #define PSF1_MAGIC0     0x36

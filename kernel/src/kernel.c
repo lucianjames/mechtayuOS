@@ -1,15 +1,19 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "limine.h"
 
-#include "serialout.h"
-#include "graphics.h"
-#include "kterminal.h"
+#include "third-party/limine.h"
+
 #include "constants.h"
-#include "utility.h"
-#include "pmm.h"
-#include "vmm.h"
+#include "util/utility.h"
+#include "debugging/serialout.h"
+
+#include "graphical/graphics.h"
+#include "graphical/kterminal.h"
+
+#include "memory/pmm.h"
+#include "memory/vmm.h"
+#include "memory/gdt.h"
 
 /*
     Limine bootloader requests, see limine docs/examples for all the info
@@ -55,13 +59,6 @@ static volatile struct limine_hhdm_request hhdm_request = {
 
 __attribute__((used, section(".requests_end_marker")))
 static volatile LIMINE_REQUESTS_END_MARKER;
-
-
-
-
-
-
-
 
 
 
@@ -141,10 +138,9 @@ void kmain(void) {
         Set up GDT
         Limine provides one that works, but its best we are in control of it.
     */
-    //debug_serial_printf("Setting up GDT... ");
-    //gdt_setup();
-    //debug_serial_printf("OK\n");
-    /* I just cant get this shit to work on real hardware.... >:( */
+    debug_serial_printf("Setting up GDT... ");
+    gdt_setup();
+    debug_serial_printf("OK\n");
 
     /*
         Map memmap response to new virtual address

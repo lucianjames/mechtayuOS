@@ -2,14 +2,15 @@
 #define PMM_H
 
 #include <stddef.h>
-#include "limine.h"
+
+#include "third-party/limine.h"
+
+#include "util/utility.h"
+#include "debugging/serialout.h"
+
+#include "vmm.h"
 
 #include "constants.h"
-
-#include "utility.h"
-#include "serialout.h"
-#include "vmm.h"
-#include "kterminal.h"
 
 struct bytemap_info{
     uint64_t base_phys;

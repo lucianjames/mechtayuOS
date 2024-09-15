@@ -3,12 +3,14 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "limine.h"
+
+#include "third-party/limine.h"
 
 #include "constants.h"
 
-#include "utility.h"
-#include "serialout.h"
+#include "util/utility.h"
+#include "debugging/serialout.h"
+
 #include "pmm.h"
 
 #define VMM_IDENTITY_MAP_OFFSET 0x666000000000
