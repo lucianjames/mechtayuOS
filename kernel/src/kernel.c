@@ -10,7 +10,6 @@
 #include "utility.h"
 #include "pmm.h"
 #include "vmm.h"
-#include "gdt.h"
 
 /*
     Limine bootloader requests, see limine docs/examples for all the info
