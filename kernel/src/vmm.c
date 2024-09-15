@@ -38,8 +38,14 @@ uint64_t translateaddr_idmap_p2v(uint64_t addr){
 void vmm_setup(const struct limine_memmap_response memmap_response){
     // Allocate a page for PML4
     _vmm_PML4_physAddr = (uint64_t*)pmm_alloc_pages(1);
+    // Zero out PML4
+    uint64_t* PML4_limineVirtAddr = (uint64_t*)translateaddr_idmap_p2v_limine((uint64_t)_vmm_PML4_physAddr);
+    for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
+        PML4_limineVirtAddr[i] = 0x0;
+    }
+    kterm_printf_newline("Zeroed out 0x%x\n", _vmm_PML4_physAddr);
     // Identity map PML4
-    vmm_map_phys2virt((uint64_t)_vmm_PML4_physAddr, (uint64_t)_vmm_PML4_physAddr + VMM_IDENTITY_MAP_OFFSET, 0x3);
+    vmm_identity_map_page((uint64_t)_vmm_PML4_physAddr, 0x3);
 
     /*
         ===
@@ -92,6 +98,42 @@ void vmm_setup(const struct limine_memmap_response memmap_response){
     debug_serial_printf("OK!\n");
 }
 
+uint64_t vmm_iterate_table(uint64_t table_physical_address, uint16_t offset, uint64_t flags){
+    uint64_t flagFilter = 0b1000000000000000000000000000000000000000000000000000111111111111; // These bits are allowed to be set by the flags parameter.
+    uint64_t* table_virtual_address = (uint64_t*)translateaddr_idmap_p2v((uint64_t)table_physical_address);
+    debug_serial_printf("table_virtual_address: 0x%x\n", table_virtual_address);
+    uint64_t next_table_physical_address = table_virtual_address[offset] & (~flagFilter);
+    if(next_table_physical_address == 0x0){
+        // Allocate new page
+        table_virtual_address[offset] = (uint64_t)pmm_alloc_pages(1);
+        // Set return value of function to physical address of table entry
+        next_table_physical_address = table_virtual_address[offset] & (~flagFilter);
+
+        if(g_vmm_usingLiminePageTables){
+            uint64_t next_table_virtual_address = translateaddr_idmap_p2v(next_table_physical_address);
+            for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
+                ((uint64_t*)next_table_virtual_address)[i] = 0x0;
+            }
+            kterm_printf_newline("Zeroed out 0x%x\n", next_table_physical_address);
+        }
+
+        // Identity map page
+        vmm_identity_map_page(next_table_physical_address, 0x3);
+
+        if(!g_vmm_usingLiminePageTables){
+            uint64_t next_table_virtual_address = translateaddr_idmap_p2v(next_table_physical_address);
+            for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
+                ((uint64_t*)next_table_virtual_address)[i] = 0x0;
+            }
+            //kterm_printf_newline("Zeroed out 0x%x\n", next_table_physical_address);
+        }
+
+        // Apply flags to table entry
+        table_virtual_address[offset] |= flags;
+    }
+    return next_table_physical_address;
+}
+
 /*
     Maps a physical address to a virtual address.
     Uses the PML4 at _vmm_PML4_physAddr.
@@ -124,46 +166,15 @@ uint64_t vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flag
     uint64_t PTE = (flags) 
                     | ((phys_addr / PAGE_SIZE) << PAGE_BITSIZE);
 
-    //debug_serial_printf("New PTE: 0x%x\n", PTE);
+    uint64_t PDP_physAddr = vmm_iterate_table((uint64_t)_vmm_PML4_physAddr, va_PML4_offset, flags);
+    uint64_t PD_physAddr = vmm_iterate_table(PDP_physAddr, va_PDP_offset, flags);
 
-    /*
-        Walk through page tables to find PT to insert PTE into
-    */
-    uint64_t* PML4_virtAddr = (uint64_t*)translateaddr_idmap_p2v((uint64_t)_vmm_PML4_physAddr);
-    uint64_t PDP_physAddr = PML4_virtAddr[va_PML4_offset] & (~flagFilter);
-    if(PDP_physAddr == 0x0){
-        PML4_virtAddr[va_PML4_offset] = (uint64_t)pmm_alloc_pages(1);
-        // Identity map the new page so that it can be accessed by the kernel later
-        vmm_map_phys2virt(PML4_virtAddr[va_PML4_offset], PML4_virtAddr[va_PML4_offset] + VMM_IDENTITY_MAP_OFFSET, 0x3);
-        PDP_physAddr = PML4_virtAddr[va_PML4_offset] & (~flagFilter);
-        PML4_virtAddr[va_PML4_offset] |= flags;
-    }
-
-    uint64_t* PDP_virtAddr = (uint64_t*)translateaddr_idmap_p2v((uint64_t)PDP_physAddr);
-    uint64_t PD_physAddr = PDP_virtAddr[va_PDP_offset] & (~flagFilter);
-    if(PD_physAddr == 0x0){
-        PDP_virtAddr[va_PDP_offset] = (uint64_t)pmm_alloc_pages(1);
-        // Identity map the new page so that it can be accessed by the kernel later
-        vmm_map_phys2virt(PDP_virtAddr[va_PDP_offset], PDP_virtAddr[va_PDP_offset] + VMM_IDENTITY_MAP_OFFSET, 0x3);
-        PD_physAddr = PDP_virtAddr[va_PDP_offset];
-        PDP_virtAddr[va_PDP_offset] |= flags;
-    }
-
-    uint64_t* PD_virtAddr = (uint64_t*)translateaddr_idmap_p2v((uint64_t)PD_physAddr);
-    uint64_t PT_physAddr = PD_virtAddr[va_PD_offset] & (~flagFilter);
-    if(PT_physAddr == 0x0){
-        PD_virtAddr[va_PD_offset] = (uint64_t)pmm_alloc_pages(1);
-        // Identity map the new page so that it can be accessed by the kernel later
-        vmm_map_phys2virt(PD_virtAddr[va_PD_offset], PD_virtAddr[va_PD_offset] + VMM_IDENTITY_MAP_OFFSET, 0x3);
-        PT_physAddr = PD_virtAddr[va_PD_offset];
-        PD_virtAddr[va_PD_offset] |= flags;
-    }
-
+    uint64_t PT_physAddr = vmm_iterate_table(PD_physAddr, va_PD_offset, flags);
     uint64_t* PT_virtAddr = (uint64_t*)translateaddr_idmap_p2v((uint64_t)PT_physAddr);
-
-    // Insert the page table entry
     PT_virtAddr[va_PT_offset] = PTE;
 
+
+    debug_serial_printf("vmp2v mapped 0x%x to 0x%x\n", phys_addr, virt_addr);
     return virt_addr;
 }
 
