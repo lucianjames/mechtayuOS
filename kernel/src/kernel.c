@@ -142,9 +142,9 @@ void kmain(void) {
         Set up GDT
         Limine provides one that works, but its best we are in control of it.
     */
-    /*
-        GDT CODE IS BROKEN - TODO FIX
-    */
+    debug_serial_printf("Setting up GDT... ");
+    gdt_setup();
+    debug_serial_printf("OK\n");
 
     /*
         Map memmap response to new virtual address
