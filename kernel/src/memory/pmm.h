@@ -20,7 +20,7 @@ struct bytemap_info{
 extern struct bytemap_info g_kbytemap_info;
 
 void pmm_setup_bytemap(struct limine_memmap_response memmap_response);
-uint8_t* pmm_alloc_pages(const int n_pages);
+void* pmm_alloc_pages(const int n_pages);
 void pmm_free_page(const int pageN);
 void pmm_free_page_physaddr(uint64_t physical_address);
 

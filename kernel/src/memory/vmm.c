@@ -40,7 +40,7 @@ void vmm_setup(const struct limine_memmap_response memmap_response){
     _vmm_PML4_physAddr = (uint64_t*)pmm_alloc_pages(1);
     // Zero out PML4 (using its virtual address from limine, as we have not yet switched to our own page tables)
     uint64_t* PML4_limineVirtAddr = (uint64_t*)translateaddr_idmap_p2v_limine((uint64_t)_vmm_PML4_physAddr);
-    for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
+    for(int i=0; i<PAGE_SIZE/(int)sizeof(uint64_t); i++){
         PML4_limineVirtAddr[i] = 0x0;
     }
     // Identity map PML4
@@ -61,7 +61,7 @@ void vmm_setup(const struct limine_memmap_response memmap_response){
         }
     }
     // Map kernel to higher half 0xffffffff80000000
-    for(int i=0; i<(kernel_length / PAGE_SIZE)+1; i++){
+    for(int i=0; i<(int)(kernel_length / PAGE_SIZE)+1; i++){
         vmm_map_phys2virt(kernel_physical_addr + (i*PAGE_SIZE), 0xffffffff80000000 + (i*PAGE_SIZE), 0x03);
     }
 
@@ -107,7 +107,7 @@ uint64_t vmm_iterate_table(uint64_t table_physical_address, uint16_t offset, uin
         // If in limine mode, zero out the table right now as we dont need to identity map it in order to do so.
         if(g_vmm_usingLiminePageTables){
             uint64_t next_table_virtual_address = translateaddr_idmap_p2v(next_table_physical_address);
-            for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
+            for(int i=0; i<PAGE_SIZE/(int)sizeof(uint64_t); i++){
                 ((uint64_t*)next_table_virtual_address)[i] = 0x0;
             }
         }
@@ -119,7 +119,7 @@ uint64_t vmm_iterate_table(uint64_t table_physical_address, uint16_t offset, uin
         // Im still not 100% sure if this is bug free. Needs testing...
         if(!g_vmm_usingLiminePageTables){
             uint64_t next_table_virtual_address = translateaddr_idmap_p2v(next_table_physical_address);
-            for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
+            for(int i=0; i<PAGE_SIZE/(int)sizeof(uint64_t); i++){
                 ((uint64_t*)next_table_virtual_address)[i] = 0x0;
             }
         }

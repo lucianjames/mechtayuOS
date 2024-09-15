@@ -60,8 +60,8 @@ void pmm_setup_bytemap(struct limine_memmap_response memmap_response){
 
 
 
-uint8_t* pmm_alloc_pages(const int n_pages){
-    uint8_t* allocStartAddr = NULL;
+void* pmm_alloc_pages(const int n_pages){
+    void* allocStartAddr = NULL;
 
     // Find N free pages in the bytemap
     // Writing this the REALLY inefficient way first.
@@ -77,7 +77,7 @@ uint8_t* pmm_alloc_pages(const int n_pages){
                     break;
                 }
                 if(j==n_pages-1){
-                    allocStartAddr = (uint8_t*)(i*PAGE_SIZE);
+                    allocStartAddr = (void*)(long)(i*PAGE_SIZE);
                     // mark from i to i+n_pages as used
                     for(int np = 0; np < n_pages; np++){
                         bytemap_vaddr[i+np] = 0b00000000;
