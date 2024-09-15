@@ -261,9 +261,13 @@ void kmain(void) {
         Test
     */
     uint64_t test_physaddr = (uint64_t)pmm_alloc_pages(1);
-    uint64_t* test_virtaddr_arr = (uint64_t*)vmm_map_phys2virt(test_physaddr, 0x13371337000, 0x3);
-    test_virtaddr_arr[0] = 0x1337;
+    uint64_t* test_virtaddr_arr = (uint64_t*)vmm_map_phys2virt(test_physaddr, 0xffffffffffff0000, 0x3);
+    test_virtaddr_arr[0] = 0xffffffffffff0000;
     kterm_printf_newline("0x%x", test_virtaddr_arr[0]);
+    uint64_t test_physaddr2 = (uint64_t)pmm_alloc_pages(1);
+    uint64_t* test_virtaddr_arr2 = (uint64_t*)vmm_map_phys2virt(test_physaddr, 0x0000000133700000, 0x3);
+    test_virtaddr_arr2[0] = 0x0000000133700000;
+    kterm_printf_newline("0x%x", test_virtaddr_arr2[0]);
 
 
     khalt();
