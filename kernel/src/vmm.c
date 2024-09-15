@@ -38,12 +38,11 @@ uint64_t translateaddr_idmap_p2v(uint64_t addr){
 void vmm_setup(const struct limine_memmap_response memmap_response){
     // Allocate a page for PML4
     _vmm_PML4_physAddr = (uint64_t*)pmm_alloc_pages(1);
-    // Zero out PML4
+    // Zero out PML4 (using its virtual address from limine, as we have not yet switched to our own page tables)
     uint64_t* PML4_limineVirtAddr = (uint64_t*)translateaddr_idmap_p2v_limine((uint64_t)_vmm_PML4_physAddr);
     for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
         PML4_limineVirtAddr[i] = 0x0;
     }
-    kterm_printf_newline("Zeroed out 0x%x\n", _vmm_PML4_physAddr);
     // Identity map PML4
     vmm_identity_map_page((uint64_t)_vmm_PML4_physAddr, 0x3);
 
@@ -86,9 +85,7 @@ void vmm_setup(const struct limine_memmap_response memmap_response){
         Map PMM bytemap
         ===
     */
-    for(int i=0; i<g_kbytemap_info.size_npages; i++){
-        vmm_map_phys2virt(g_kbytemap_info.base_phys + (i*PAGE_SIZE), g_kbytemap_info.base_phys + VMM_IDENTITY_MAP_OFFSET + (i*PAGE_SIZE), 0x3);
-    }
+    vmm_identity_map_n_pages(g_kbytemap_info.base_phys, g_kbytemap_info.size_npages, 0x3);
     
     /*
         Switch to new page table
@@ -101,31 +98,30 @@ void vmm_setup(const struct limine_memmap_response memmap_response){
 uint64_t vmm_iterate_table(uint64_t table_physical_address, uint16_t offset, uint64_t flags){
     uint64_t flagFilter = 0b1000000000000000000000000000000000000000000000000000111111111111; // These bits are allowed to be set by the flags parameter.
     uint64_t* table_virtual_address = (uint64_t*)translateaddr_idmap_p2v((uint64_t)table_physical_address);
-    debug_serial_printf("table_virtual_address: 0x%x\n", table_virtual_address);
     uint64_t next_table_physical_address = table_virtual_address[offset] & (~flagFilter);
     if(next_table_physical_address == 0x0){
-        // Allocate new page
-        table_virtual_address[offset] = (uint64_t)pmm_alloc_pages(1);
-        // Set return value of function to physical address of table entry
-        next_table_physical_address = table_virtual_address[offset] & (~flagFilter);
-
+        // Allocate new page and set return value to the addr of the freshly allocated page.
+        table_virtual_address[offset] = (uint64_t)pmm_alloc_pages(1); // Alloc new page and put it into the CURRENT table
+        next_table_physical_address = table_virtual_address[offset];
+        
+        // If in limine mode, zero out the table right now as we dont need to identity map it in order to do so.
         if(g_vmm_usingLiminePageTables){
             uint64_t next_table_virtual_address = translateaddr_idmap_p2v(next_table_physical_address);
             for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
                 ((uint64_t*)next_table_virtual_address)[i] = 0x0;
             }
-            kterm_printf_newline("Zeroed out 0x%x\n", next_table_physical_address);
         }
 
-        // Identity map page
+        // Identity map page so that it can be read/written in order to zero it (if post- cr3 switch), but also in order to fill it with data later on.
         vmm_identity_map_page(next_table_physical_address, 0x3);
 
+        // Once we are on our own, we can only zero out a page after it has been identity mapped.
+        // Im still not 100% sure if this is bug free. Needs testing...
         if(!g_vmm_usingLiminePageTables){
             uint64_t next_table_virtual_address = translateaddr_idmap_p2v(next_table_physical_address);
             for(int i=0; i<PAGE_SIZE/sizeof(uint64_t); i++){
                 ((uint64_t*)next_table_virtual_address)[i] = 0x0;
             }
-            //kterm_printf_newline("Zeroed out 0x%x\n", next_table_physical_address);
         }
 
         // Apply flags to table entry
@@ -173,8 +169,6 @@ uint64_t vmm_map_phys2virt(uint64_t phys_addr, uint64_t virt_addr, uint64_t flag
     uint64_t* PT_virtAddr = (uint64_t*)translateaddr_idmap_p2v((uint64_t)PT_physAddr);
     PT_virtAddr[va_PT_offset] = PTE;
 
-
-    debug_serial_printf("vmp2v mapped 0x%x to 0x%x\n", phys_addr, virt_addr);
     return virt_addr;
 }
 

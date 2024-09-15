@@ -124,66 +124,6 @@ void kmain(void) {
     struct limine_memmap_response k_memmap_info = *memmap_request.response;
     struct limine_framebuffer k_framebuffer = *framebuffer_request.response->framebuffers[0];
 
-
-
-
-
-
-
-    kterm_printf_newline("MMAP:");
-    size_t usableMemSize = 0;
-    size_t usableSections = 0;
-    size_t totalMemory = 0;
-    for(uint64_t i=0; i<k_memmap_info.entry_count; i++){
-        totalMemory += k_memmap_info.entries[i]->length;
-        char* typestr;
-        switch(k_memmap_info.entries[i]->type){
-            case LIMINE_MEMMAP_USABLE:
-                typestr = "MEMMAP_USABLE";
-                usableMemSize += k_memmap_info.entries[i]->length;
-                usableSections++;
-                break;
-            case LIMINE_MEMMAP_RESERVED:
-                typestr = "MEMMAP_RESERVED";
-                totalMemory -= k_memmap_info.entries[i]->length;
-                break;
-            case LIMINE_MEMMAP_ACPI_RECLAIMABLE:
-                typestr = "MEMMAP_ACPI_RECLAIMABLE";
-                break;
-            case LIMINE_MEMMAP_ACPI_NVS:
-                typestr = "MEMMAP_ACPI_NVS";
-                break;
-            case LIMINE_MEMMAP_BAD_MEMORY:
-                typestr = "MEMMAP_BAD_MEMORY";
-                break;
-            case LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE:
-                typestr = "MEMMAP_BOOTLOADER_RECLAIMABLE";
-                break;
-            case LIMINE_MEMMAP_KERNEL_AND_MODULES:
-                typestr = "MEMMAP_KERNEL_AND_MODULES";
-                break;
-            case LIMINE_MEMMAP_FRAMEBUFFER:
-                typestr = "MEMMAP_FRAMEBUFFER";
-                break;
-            default:
-                typestr = "UNKNOWN";
-                break;
-        }
-        kterm_printf_newline("  Base=0x%x Length=0x%x Type=%s", 
-                k_memmap_info.entries[i]->base,
-                k_memmap_info.entries[i]->length,
-                typestr);
-    }
-    kterm_printf_newline("Usable mem size: %u bytes across %u sections", usableMemSize, usableSections);
-    kterm_printf_newline("Total mem size (not incl MEMMAP_RESERVED): %u bytes", totalMemory);
-
-
-
-
-
-
-
-
     /*
         Set up PMM
     */
@@ -198,16 +138,13 @@ void kmain(void) {
     debug_serial_printf("Setting up VMM... ");
     vmm_setup(k_memmap_info);
 
-
-//for(;;){asm("nop");} //////////////////////////////////////////////////////////////////
     /*
         Set up GDT
         Limine provides one that works, but its best we are in control of it.
     */
-    //debug_serial_printf("Setting up GDT... ");
-    //gdt_setup();
-    //debug_serial_printf("OK\n");
-
+    /*
+        GDT CODE IS BROKEN - TODO FIX
+    */
 
     /*
         Map memmap response to new virtual address
@@ -267,7 +204,52 @@ void kmain(void) {
     kterm_printf_newline("Bytemap size (bytes): %u (0x%x), (n_pages): %u", g_kbytemap_info.size_npages * PAGE_SIZE, g_kbytemap_info.size_npages * PAGE_SIZE, g_kbytemap_info.size_npages);
     kterm_printf_newline("Kernel physical base addr=0x%x Virtual base addr=0x%x", k_kerneladdr_info.physical_base, k_kerneladdr_info.virtual_base);
     kterm_printf_newline("Kernel stack size = 0x%x", KERNEL_STACK_SIZE);
-    
+    kterm_printf_newline("MMAP:");
+    size_t usableMemSize = 0;
+    size_t usableSections = 0;
+    size_t totalMemory = 0;
+    for(uint64_t i=0; i<k_memmap_info.entry_count; i++){
+        totalMemory += k_memmap_info.entries[i]->length;
+        char* typestr;
+        switch(k_memmap_info.entries[i]->type){
+            case LIMINE_MEMMAP_USABLE:
+                typestr = "MEMMAP_USABLE";
+                usableMemSize += k_memmap_info.entries[i]->length;
+                usableSections++;
+                break;
+            case LIMINE_MEMMAP_RESERVED:
+                typestr = "MEMMAP_RESERVED";
+                totalMemory -= k_memmap_info.entries[i]->length;
+                break;
+            case LIMINE_MEMMAP_ACPI_RECLAIMABLE:
+                typestr = "MEMMAP_ACPI_RECLAIMABLE";
+                break;
+            case LIMINE_MEMMAP_ACPI_NVS:
+                typestr = "MEMMAP_ACPI_NVS";
+                break;
+            case LIMINE_MEMMAP_BAD_MEMORY:
+                typestr = "MEMMAP_BAD_MEMORY";
+                break;
+            case LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE:
+                typestr = "MEMMAP_BOOTLOADER_RECLAIMABLE";
+                break;
+            case LIMINE_MEMMAP_KERNEL_AND_MODULES:
+                typestr = "MEMMAP_KERNEL_AND_MODULES";
+                break;
+            case LIMINE_MEMMAP_FRAMEBUFFER:
+                typestr = "MEMMAP_FRAMEBUFFER";
+                break;
+            default:
+                typestr = "UNKNOWN";
+                break;
+        }
+        kterm_printf_newline("  Base=0x%x Length=0x%x Type=%s", 
+                k_memmap_info.entries[i]->base,
+                k_memmap_info.entries[i]->length,
+                typestr);
+    }
+    kterm_printf_newline("Usable mem size: %u bytes across %u sections", usableMemSize, usableSections);
+    kterm_printf_newline("Total mem size (not incl MEMMAP_RESERVED): %u bytes", totalMemory);
     
     /*
         Bootloader reclaimable sections could now be set to usable sections, as we will no longer
