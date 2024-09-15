@@ -9,6 +9,7 @@
 #include "utility.h"
 #include "serialout.h"
 #include "vmm.h"
+#include "kterminal.h"
 
 struct bytemap_info{
     uint64_t base_phys;

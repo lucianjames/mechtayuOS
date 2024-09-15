@@ -69,7 +69,8 @@ uint8_t* pmm_alloc_pages(const int n_pages){
 
     uint8_t* bytemap_vaddr = (uint8_t*)translateaddr_idmap_p2v(g_kbytemap_info.base_phys);
 
-    for(uint32_t i=_pmm_bytemap_free_page_cache; i<g_kbytemap_info.size_npages*0x1000; i++){
+    //for(uint32_t i=_pmm_bytemap_free_page_cache; i<g_kbytemap_info.size_npages*0x1000; i++){
+    for(uint32_t i=0; i<g_kbytemap_info.size_npages*0x1000; i++){
         if(bytemap_vaddr[i] & 0b00000001){
             for(int j=0; j<n_pages; j++){
                 if(!(bytemap_vaddr[i+j] & 0b00000001)){
@@ -81,8 +82,9 @@ uint8_t* pmm_alloc_pages(const int n_pages){
                     // mark from i to i+n_pages as used
                     for(int np = 0; np < n_pages; np++){
                         bytemap_vaddr[i+np] = 0b00000000;
-                        _pmm_bytemap_free_page_cache = i+np+1;
+                        //_pmm_bytemap_free_page_cache = i+np+1;
                     }
+                    //kterm_printf_newline("Allocated %u pages starting at addr 0x%x", n_pages, allocStartAddr);
                     return allocStartAddr;
                 }
             }
