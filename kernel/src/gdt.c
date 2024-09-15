@@ -9,18 +9,19 @@ uint64_t gdt_descriptors[6] = {0};
 */
 void gdt_setup(){
 
-    create_descriptor(0, 0, 0);
-    create_descriptor(0, 0x000FFFFF, (GDT_CODE_PL0));
-    create_descriptor(0, 0x000FFFFF, (GDT_DATA_PL0));
-    create_descriptor(0, 0x000FFFFF, (GDT_CODE_PL3));
-    create_descriptor(0, 0x000FFFFF, (GDT_DATA_PL3));
+    gdt_descriptors[0] = create_descriptor(0, 0, 0);
+    gdt_descriptors[1] = create_descriptor(0, 0x000FFFFF, (GDT_CODE_PL0));
+    gdt_descriptors[2] = create_descriptor(0, 0x000FFFFF, (GDT_DATA_PL0));
+    gdt_descriptors[3] = create_descriptor(0, 0x000FFFFF, (GDT_CODE_PL3));
+    gdt_descriptors[4] = create_descriptor(0, 0x000FFFFF, (GDT_DATA_PL3));
     /*
-    
-    0x0028	Task State Segment
-        (64-bit System Segment)	Base = &TSS
-        Limit = sizeof(TSS)-1
-        Access Byte = 0x89
-        Flags = 0x0
+    Should add TSS......
+
+        0x0028	Task State Segment
+            (64-bit System Segment)	Base = &TSS
+            Limit = sizeof(TSS)-1
+            Access Byte = 0x89
+            Flags = 0x0
     */
 
     asm volatile ("lgdt %0" :: "m"(gdt_descriptors) : "memory");
